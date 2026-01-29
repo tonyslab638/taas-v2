@@ -1,0 +1,19 @@
+{
+  "name": "taas-v2",
+  "version": "1.0.0",
+  "description": "ASJUJ Trust-as-a-Service V2",
+  "scripts": {
+    "deploy": "npx hardhat run scripts/deploy.js --network amoy",
+    "panel": "node panel/server.js",
+    "verify": "node verify.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.10.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "hardhat": "^2.20.0"
+  }
+}
