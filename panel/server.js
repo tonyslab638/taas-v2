@@ -5,14 +5,13 @@ const app = express();
 app.use(express.json());
 
 // ===== CONFIG =====
-const RPC_URL = process.env.RPC_URL || "https://polygon-mainnet.g.alchemy.com/v2/jyVOlegRibEBpVE-2bOHV";
-const PRIVATE_KEY = process.env.PRIVATE_KEY || "0xad622e40696eeb98115816682d004bfda83d2555d87b664e8a56aa4bb787b7fe";
-const CONTRACT_ADDRESS = process.env.CONTRACT || "0xddead6f20d56a3f4bf5e387d5a96ccd00a1f91e3";
+const RPC_URL = process.env.RPC_URL;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const CONTRACT_ADDRESS = process.env.CONTRACT;
 // ==================
 
 const ABI = [
-  "function birthProduct(string,string,string,string,string,string,bytes32)",
-  "function approveIssuer(address)"
+  "function birthProduct(string,string,string,string,string,string,bytes32)"
 ];
 
 const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -27,7 +26,29 @@ const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
   console.log("Contract:", CONTRACT_ADDRESS);
 })();
 
-app.post("/api/create", async (req, res) => {
+// UI
+app.get("/", (req, res) => {
+  res.send(`
+    <html>
+      <body style="font-family:Arial;padding:40px">
+        <h1>TAAS Panel V2</h1>
+        <form method="POST" action="/create">
+          <input name="gpid" placeholder="GPID" required /><br/><br/>
+          <input name="brand" placeholder="Brand" required /><br/><br/>
+          <input name="model" placeholder="Model" required /><br/><br/>
+          <input name="category" placeholder="Category" required /><br/><br/>
+          <input name="factory" placeholder="Factory" required /><br/><br/>
+          <input name="batch" placeholder="Batch" required /><br/><br/>
+          <button>Create Product</button>
+        </form>
+      </body>
+    </html>
+  `);
+});
+
+app.use(express.urlencoded({ extended: true }));
+
+app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
 
@@ -42,9 +63,19 @@ app.post("/api/create", async (req, res) => {
     );
 
     const r = await tx.wait();
-    res.json({ success: true, tx: tx.hash, block: r.blockNumber });
+
+    res.send(`
+      <h2>Product Created</h2>
+      <p>TX: ${tx.hash}</p>
+      <p>Block: ${r.blockNumber}</p>
+      <a href="/">Create Another</a>
+    `);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.send(`
+      <h2>Error</h2>
+      <pre>${e.message}</pre>
+      <a href="/">Back</a>
+    `);
   }
 });
 
