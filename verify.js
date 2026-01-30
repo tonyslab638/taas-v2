@@ -1,78 +1,71 @@
 const express = require("express");
 const { ethers } = require("ethers");
 
-// ===== CONFIG FROM ENV =====
-const RPC_URL = process.env.RPC_URL;
-const CONTRACT_ADDRESS = process.env.CONTRACT;
-// ===========================
+const app = express();
 
-if (!RPC_URL || !CONTRACT_ADDRESS) {
-  console.error("FATAL: Missing RPC_URL or CONTRACT in environment variables");
+// ===== ENV CONFIG =====
+const RPC_URL = process.env.RPC_URL;
+const CONTRACT = process.env.CONTRACT;
+
+if (!RPC_URL || !CONTRACT) {
+  console.error("Missing RPC_URL or CONTRACT in env");
   process.exit(1);
 }
 
-// ABI for V2 contract read-layer
+// ===== ABI (READ + CLAIM) =====
 const ABI = [
-  "function exists(string gpid) view returns (bool)",
-  "function getCore(string gpid) view returns (string,string,string,string,string,string)",
-  "function getMeta(string gpid) view returns (uint256,address,bytes32)"
+  "function getCore(string) view returns (string,string,string,string,string,string)",
+  "function getMeta(string) view returns (uint256,address,bytes32)",
+  "function getState(string) view returns (address,bool)",
+  "function claimOwnership(string)"
 ];
 
+// ===== CHAIN =====
 const provider = new ethers.JsonRpcProvider(RPC_URL);
-const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+const contract = new ethers.Contract(CONTRACT, ABI, provider);
 
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Boot log
+// ===== BOOT =====
 (async () => {
   const net = await provider.getNetwork();
-  console.log("========== TAAS VERIFY V2 ==========");
-  console.log("RPC:", RPC_URL);
+  console.log("========== TAAS VERIFY V3.2 ==========");
   console.log("Chain:", net.chainId.toString());
-  console.log("Contract:", CONTRACT_ADDRESS);
-  console.log("===================================");
+  console.log("Contract:", CONTRACT);
+  console.log("=====================================");
 })();
 
-// Home
+// ===== HOME =====
 app.get("/", (req, res) => {
   res.send(`
-    <html>
-      <body style="font-family:Arial;padding:40px;background:#0b0f1a;color:#fff">
-        <h1>ASJUJ Verify V2</h1>
-        <form method="GET" action="/verify">
-          <input name="gpid" placeholder="ASJUJ-V2-0001" style="padding:10px;font-size:16px"/>
-          <button style="padding:10px 16px;font-size:16px">Verify</button>
-        </form>
-      </body>
-    </html>
+    <h2>ASJUJ Verifier</h2>
+    <form method="GET" action="/verify">
+      <input name="gpid" placeholder="Enter GPID" />
+      <button>Verify</button>
+    </form>
   `);
 });
 
-// Verify endpoint
+// ===== VERIFY =====
 app.get("/verify", async (req, res) => {
   const gpid = (req.query.gpid || "").trim();
-
-  if (!gpid) {
-    return res.send("<h2>Invalid GPID</h2>");
-  }
+  if (!gpid) return res.send("Invalid GPID");
 
   try {
-    const ok = await contract.exists(gpid);
-    if (!ok) {
-      return res.send(`
-        <h1>❌ Product Not Found</h1>
-        <p>This GPID is not registered on ASJUJ Network.</p>
-      `);
-    }
-
     const core = await contract.getCore(gpid);
     const meta = await contract.getMeta(gpid);
+    const state = await contract.getState(gpid);
+
+    const owner = state[0];
+    const stolen = state[1];
 
     res.send(`
       <html>
+        <head>
+          <script src="https://cdn.jsdelivr.net/npm/ethers@6.16.0/dist/ethers.min.js"></script>
+        </head>
         <body style="font-family:Arial;padding:40px;background:#0b0f1a;color:#fff">
+
           <h1>✔ ASJUJ Verified Product</h1>
+
           <p><b>GPID:</b> ${core[0]}</p>
           <p><b>Brand:</b> ${core[1]}</p>
           <p><b>Model:</b> ${core[2]}</p>
@@ -81,19 +74,72 @@ app.get("/verify", async (req, res) => {
           <p><b>Batch:</b> ${core[5]}</p>
           <p><b>Issuer:</b> ${meta[1]}</p>
           <p><b>Born:</b> ${new Date(Number(meta[0]) * 1000).toUTCString()}</p>
+
+          <hr/>
+
+          <p><b>Owner:</b> ${
+            owner === ethers.ZeroAddress ? "Not claimed" : owner
+          }</p>
+
+          ${
+            stolen
+              ? "<h2 style='color:red'>⚠ STOLEN</h2>"
+              : ""
+          }
+
+          ${
+            owner === ethers.ZeroAddress
+              ? `
+                <button onclick="claim()">Claim Ownership</button>
+              `
+              : ""
+          }
+
+          <p id="status"></p>
+
+          <script>
+            async function claim() {
+              if (!window.ethereum) {
+                alert("MetaMask required");
+                return;
+              }
+
+              const provider = new ethers.BrowserProvider(window.ethereum);
+              await provider.send("eth_requestAccounts", []);
+              const signer = await provider.getSigner();
+
+              const contract = new ethers.Contract(
+                "${CONTRACT}",
+                ${JSON.stringify(ABI)},
+                signer
+              );
+
+              document.getElementById("status").innerText = "Claiming ownership...";
+
+              const tx = await contract.claimOwnership("${gpid}");
+              await tx.wait();
+
+              document.getElementById("status").innerText =
+                "✔ Ownership claimed. Refresh page.";
+            }
+          </script>
+
           <hr/>
           <p style="color:#4cff4c">Authentic product on ASJUJ Network</p>
+
         </body>
       </html>
     `);
   } catch (e) {
     res.send(`
-      <h1>❌ Verifier Error</h1>
-      <pre>${e.message}</pre>
+      <h1>❌ Product Not Found</h1>
+      <p>This GPID is not registered on ASJUJ Network.</p>
     `);
   }
 });
 
+// ===== START =====
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("Verifier V2 running on", PORT);
+  console.log("TAAS Verifier V3.2 running on", PORT);
 });
