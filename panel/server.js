@@ -1,64 +1,56 @@
 const express = require("express");
 const { ethers } = require("ethers");
-const QRCode = require("qrcode");
+require("dotenv").config();
 
 const app = express();
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
-// ===== CONFIG FROM ENV =====
+const PORT = process.env.PORT || 10000;
+
+// =======================
+// ENV (Render Variables)
+// =======================
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const CONTRACT_ADDRESS = process.env.CONTRACT;
-// ===========================
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
-if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.error("FATAL: Missing environment variables");
-  process.exit(1);
-}
-
-// ===== CONTRACT ABI (WRITE ONLY) =====
-const ABI = [
-  "function birthProduct(string,string,string,string,string,string,bytes32)"
-];
-
-// ===== BLOCKCHAIN SETUP =====
+// =======================
+// PROVIDER + WALLET
+// =======================
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+// =======================
+// V3 CONTRACT ABI (ONLY WHAT WE NEED)
+// =======================
+const ABI = [
+  "function birthProduct(string,string,string,string,string,string)"
+];
+
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
-// ===== BOOT LOG =====
-(async () => {
-  const net = await provider.getNetwork();
-  console.log("========== TAAS PANEL V3 ==========");
-  console.log("Wallet:", wallet.address);
-  console.log("Chain:", net.chainId.toString());
-  console.log("Contract:", CONTRACT_ADDRESS);
-  console.log("==================================");
-})();
-
-// ===== UI: HOME =====
+// =======================
+// UI (Simple Form)
+// =======================
 app.get("/", (req, res) => {
   res.send(`
-    <html>
-      <body style="font-family:Arial;padding:40px">
-        <h1>ASJUJ Panel V3</h1>
-
-        <form method="POST" action="/create">
-          <input name="gpid" placeholder="GPID" required /><br/><br/>
-          <input name="brand" placeholder="Brand" required /><br/><br/>
-          <input name="model" placeholder="Model" required /><br/><br/>
-          <input name="category" placeholder="Category" required /><br/><br/>
-          <input name="factory" placeholder="Factory" required /><br/><br/>
-          <input name="batch" placeholder="Batch" required /><br/><br/>
-          <button>Create Product</button>
-        </form>
-      </body>
-    </html>
+    <h2>ASJUJ TAAS – Panel V3</h2>
+    <form method="POST" action="/create">
+      <input name="gpid" placeholder="GPID" required /><br/><br/>
+      <input name="brand" placeholder="Brand" required /><br/><br/>
+      <input name="model" placeholder="Model" required /><br/><br/>
+      <input name="category" placeholder="Category" required /><br/><br/>
+      <input name="factory" placeholder="Factory" required /><br/><br/>
+      <input name="batch" placeholder="Batch" required /><br/><br/>
+      <button type="submit">Create Product</button>
+    </form>
   `);
 });
 
-// ===== CREATE PRODUCT + QR =====
+// =======================
+// CREATE PRODUCT (V3)
+// =======================
 app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
@@ -69,50 +61,39 @@ app.post("/create", async (req, res) => {
       model,
       category,
       factory,
-      batch,
-      ethers.id(gpid)
+      batch
     );
 
     const receipt = await tx.wait();
 
-    // VERIFICATION URL (QR payload)
-    const verifyURL = `https://verify-v2-lowr.onrender.com/verify?gpid=${gpid}`;
-    const qr = await QRCode.toDataURL(verifyURL);
-
     res.send(`
-      <html>
-        <body style="font-family:Arial;padding:40px">
-          <h1>✔ Product Created</h1>
-
-          <p><b>GPID:</b> ${gpid}</p>
-          <p><b>Transaction:</b> ${tx.hash}</p>
-          <p><b>Block:</b> ${receipt.blockNumber}</p>
-
-          <h2>Scan to Verify</h2>
-          <img src="${qr}" />
-
-          <p>
-            <a href="${verifyURL}" target="_blank">
-              Open Verification Page
-            </a>
-          </p>
-
-          <hr/>
-          <a href="/">Create Another Product</a>
-        </body>
-      </html>
+      <h2>✔ Product Created</h2>
+      <p><b>GPID:</b> ${gpid}</p>
+      <p><b>Transaction:</b> ${tx.hash}</p>
+      <p><b>Block:</b> ${receipt.blockNumber}</p>
+      <br/>
+      <a href="https://taas-verifier-v3.onrender.com/verify?gpid=${gpid}">
+        Verify Product
+      </a>
+      <br/><br/>
+      <a href="/">Create Another</a>
     `);
-  } catch (e) {
+  } catch (err) {
     res.send(`
-      <h1>❌ Error</h1>
-      <pre>${e.message}</pre>
+      <h2>❌ Error</h2>
+      <pre>${err.message}</pre>
+      <br/>
       <a href="/">Back</a>
     `);
   }
 });
 
-// ===== START SERVER =====
-const PORT = process.env.PORT || 10000;
+// =======================
+// START SERVER
+// =======================
 app.listen(PORT, () => {
   console.log("TAAS Panel V3 running on", PORT);
+  console.log("Wallet:", wallet.address);
+  console.log("Chain: 80002");
+  console.log("Contract:", CONTRACT_ADDRESS);
 });
