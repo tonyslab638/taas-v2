@@ -1,38 +1,30 @@
 import express from "express";
 import { ethers } from "ethers";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 // =======================
-// CONFIG (ENV)
+// ENV
 // =======================
 const RPC_URL = process.env.RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 // =======================
-// PROVIDER (READ ONLY)
+// PROVIDER (READ)
 // =======================
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
 // =======================
-// ABI (ONLY WHAT WE NEED)
+// ABI (READ + TRANSFER)
 // =======================
 const ABI = [
   "function getProduct(string) view returns (string,string,string,string,string,string,uint256,address,address,bool)",
-  "function claimProduct(string)"
+  "function transferOwnership(string,address)"
 ];
 
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-// =======================
-// HOME
 // =======================
 app.get("/", (req, res) => {
   res.send(`
@@ -45,8 +37,6 @@ app.get("/", (req, res) => {
 });
 
 // =======================
-// VERIFY PRODUCT
-// =======================
 app.get("/verify", async (req, res) => {
   const gpid = (req.query.gpid || "").trim();
   if (!gpid) return res.send("Invalid GPID");
@@ -56,7 +46,6 @@ app.get("/verify", async (req, res) => {
 
     const owner = p[8];
     const stolen = p[9];
-    const isUnclaimed = owner === ethers.ZeroAddress;
 
     res.send(`
       <html>
@@ -64,7 +53,7 @@ app.get("/verify", async (req, res) => {
         <title>ASJUJ Verification</title>
         <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.min.js"></script>
       </head>
-      <body style="font-family:Arial;padding:30px;background:#0b0f1a;color:#fff">
+      <body style="font-family:Arial;background:#0b0f1a;color:white;padding:30px">
 
         <h1>✔ ASJUJ Verified Product</h1>
 
@@ -80,35 +69,48 @@ app.get("/verify", async (req, res) => {
         <hr/>
 
         <p><b>Status:</b> ${stolen ? "🚨 STOLEN" : "ACTIVE"}</p>
-        <p><b>Owner:</b> ${isUnclaimed ? "Unclaimed" : owner}</p>
+        <p><b>Owner:</b> ${owner}</p>
 
-        ${
-          isUnclaimed
-            ? `<button onclick="claim()">Claim Product</button>`
-            : ""
-        }
+        <div id="transferBox" style="display:none">
+          <h3>Transfer Ownership</h3>
+          <input id="newOwner" placeholder="0xBuyerAddress" style="width:400px" />
+          <br/><br/>
+          <button onclick="transfer()">Transfer Product</button>
+        </div>
 
         <script>
-          async function claim() {
-            if (!window.ethereum) {
-              alert("Wallet not detected");
-              return;
-            }
+          async function transfer() {
+            if (!window.ethereum) return alert("Wallet not detected");
 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            const contract = new ethers.Contract(
+            const addr = await signer.getAddress();
+
+            if (addr.toLowerCase() !== "${owner}".toLowerCase()) {
+              return alert("You are not the owner");
+            }
+
+            const newOwner = document.getElementById("newOwner").value;
+            if (!ethers.isAddress(newOwner)) {
+              return alert("Invalid address");
+            }
+
+            const c = new ethers.Contract(
               "${CONTRACT_ADDRESS}",
-              ["function claimProduct(string)"],
+              ["function transferOwnership(string,address)"],
               signer
             );
 
-            try {
-              const tx = await contract.claimProduct("${gpid}");
-              alert("Transaction sent: " + tx.hash);
-            } catch (e) {
-              alert("Error: " + e.message);
-            }
+            const tx = await c.transferOwnership("${gpid}", newOwner);
+            alert("Transfer TX sent: " + tx.hash);
+          }
+
+          if (window.ethereum) {
+            window.ethereum.request({ method: "eth_accounts" }).then(accs => {
+              if (accs.length && accs[0].toLowerCase() === "${owner}".toLowerCase()) {
+                document.getElementById("transferBox").style.display = "block";
+              }
+            });
           }
         </script>
 
@@ -117,15 +119,10 @@ app.get("/verify", async (req, res) => {
     `);
 
   } catch (e) {
-    res.send(`
-      <h2>❌ Product Not Found</h2>
-      <p>This GPID is not registered on ASJUJ Network.</p>
-    `);
+    res.send("<h2>❌ Product Not Found</h2>");
   }
 });
 
-// =======================
 app.listen(PORT, () => {
   console.log("TAAS Verifier running on", PORT);
-  console.log("Contract:", CONTRACT_ADDRESS);
 });
