@@ -1,92 +1,46 @@
-import express from "express";
-import { ethers } from "ethers";
+const express = require("express");
+const { ethers } = require("ethers");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ===== ENV =====
 const RPC_URL = process.env.RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
-// ===== ABI (INLINE, SAFE) =====
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+
 const ABI = [
-  {
-    "inputs": [{ "internalType": "string", "name": "gpid", "type": "string" }],
-    "name": "getProduct",
-    "outputs": [
-      { "internalType": "string", "type": "string" },
-      { "internalType": "string", "type": "string" },
-      { "internalType": "string", "type": "string" },
-      { "internalType": "string", "type": "string" },
-      { "internalType": "string", "type": "string" },
-      { "internalType": "string", "type": "string" },
-      { "internalType": "uint256", "type": "uint256" },
-      { "internalType": "address", "type": "address" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+  "function getProduct(string) view returns (string,string,string,string,string,string,uint256,address,address)"
 ];
 
-// ===== BLOCKCHAIN =====
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+const contract = new ethers.Contract(
+  CONTRACT_ADDRESS,
+  ABI,
+  provider
+);
 
-// ===== HOME =====
-app.get("/", (req, res) => {
-  res.send(`
-    <h2>ASJUJ Verifier V3</h2>
-    <form method="GET" action="/verify">
-      <input name="gpid" placeholder="ASJUJ-V3-FINAL-0001" />
-      <button>Verify</button>
-    </form>
-  `);
-});
-
-// ===== VERIFY =====
 app.get("/verify", async (req, res) => {
-  const gpid = (req.query.gpid || "").trim();
-
-  if (!gpid) {
-    return res.send("❌ Invalid GPID");
-  }
-
   try {
-    const [
-      _gpid,
-      brand,
-      model,
-      category,
-      factory,
-      batch,
-      bornAt,
-      issuer
-    ] = await contract.getProduct(gpid);
+    const gpid = req.query.gpid;
+    const p = await contract.getProduct(gpid);
 
-    res.send(`
-      <h1>✔ ASJUJ Verified Product</h1>
-      <p><b>GPID:</b> ${_gpid}</p>
-      <p><b>Brand:</b> ${brand}</p>
-      <p><b>Model:</b> ${model}</p>
-      <p><b>Category:</b> ${category}</p>
-      <p><b>Factory:</b> ${factory}</p>
-      <p><b>Batch:</b> ${batch}</p>
-      <p><b>Issuer:</b> ${issuer}</p>
-      <p><b>Born:</b> ${new Date(Number(bornAt) * 1000).toUTCString()}</p>
-      <hr />
-      <p style="color:green">Authentic product on ASJUJ Network</p>
-    `);
-
+    res.json({
+      gpid: p[0],
+      brand: p[1],
+      model: p[2],
+      category: p[3],
+      factory: p[4],
+      batch: p[5],
+      bornAt: new Date(Number(p[6]) * 1000),
+      issuer: p[7],
+      owner: p[8]
+    });
   } catch (err) {
-    res.send(`
-      <h1>❌ Product Not Found</h1>
-      <p>This GPID is not registered on ASJUJ Network.</p>
-    `);
+    res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("TAAS Verifier V3 running on", PORT);
-  console.log("RPC:", RPC_URL);
-  console.log("Contract:", CONTRACT_ADDRESS);
+  console.log("TAAS Verifier running on", PORT);
 });

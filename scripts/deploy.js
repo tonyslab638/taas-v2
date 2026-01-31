@@ -8,22 +8,21 @@ async function main() {
   const balance = await deployer.provider.getBalance(deployer.address);
   console.log("Balance:", balance.toString());
 
-  const Factory = await hre.ethers.getContractFactory("TaaSProductBirthV2");
+  const ContractFactory = await hre.ethers.getContractFactory(
+    "TaaSProductBirthV3"
+  );
+
   console.log("Contract factory loaded");
 
-  const contract = await Factory.deploy();
+  const contract = await ContractFactory.deploy();
   console.log("Deploy tx sent:", contract.deploymentTransaction().hash);
 
   await contract.waitForDeployment();
 
-  const address = await contract.getAddress();
-  console.log("=====================================");
-  console.log("TaaSProductBirthV2 deployed at:");
-  console.log(address);
-  console.log("=====================================");
+  console.log("✅ Contract deployed at:", contract.target);
 }
 
 main().catch((error) => {
-  console.error("DEPLOY ERROR:", error);
+  console.error(error);
   process.exitCode = 1;
 });

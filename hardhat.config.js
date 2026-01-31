@@ -1,10 +1,6 @@
-require("dotenv").config();
 require("@nomicfoundation/hardhat-ethers");
+require("dotenv").config();
 
-/**
- * Hardhat Configuration for TAAS-V2
- * Compatible with Hardhat 2.x + hardhat-ethers@3.x
- */
 module.exports = {
   solidity: {
     version: "0.8.20",
@@ -12,13 +8,13 @@ module.exports = {
       optimizer: {
         enabled: true,
         runs: 200
-      }
+      },
+      viaIR: true
     }
   },
-
   networks: {
     amoy: {
-      url: process.env.AMOY_RPC,
+      url: process.env.RPC_URL,
       accounts: [process.env.PRIVATE_KEY],
       chainId: 80002
     }
