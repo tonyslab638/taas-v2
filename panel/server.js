@@ -25,47 +25,26 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 // CONTRACT
 // =======================
 const ABI = [
-  "function birthProduct(string,string,string,string,string,string)",
+  "function birthProduct(string,string,string,string,string,string)"
 ];
 
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 // =======================
-// UI (HOME PAGE)
+// UI (UNCHANGED)
 // =======================
 app.get("/", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ASJUJ Network – Product Panel</title>
+  <title>ASJUJ Network – Panel</title>
   <style>
-    body {
-      background:#0b0b0b;
-      color:#fff;
-      font-family: Arial, sans-serif;
-      padding:40px;
-    }
+    body { background:#0b0b0b; color:#fff; font-family:Arial; padding:40px; }
     h1 { color:#00ffd5; }
-    input, button {
-      width:100%;
-      padding:12px;
-      margin:8px 0;
-      font-size:16px;
-    }
-    button {
-      background:#00ffd5;
-      border:none;
-      cursor:pointer;
-      font-weight:bold;
-    }
-    .box {
-      max-width:500px;
-      margin:auto;
-      background:#111;
-      padding:25px;
-      border-radius:8px;
-    }
+    input, button { width:100%; padding:12px; margin:8px 0; font-size:16px; }
+    button { background:#00ffd5; border:none; font-weight:bold; cursor:pointer; }
+    .box { max-width:500px; margin:auto; background:#111; padding:25px; border-radius:8px; }
   </style>
 </head>
 <body>
@@ -87,7 +66,7 @@ app.get("/", (req, res) => {
 });
 
 // =======================
-// CREATE PRODUCT
+// CREATE PRODUCT (UPGRADED)
 // =======================
 app.post("/create", async (req, res) => {
   try {
@@ -100,15 +79,16 @@ app.post("/create", async (req, res) => {
       category || "",
       factory || "",
       batch || "",
-      { gasLimit: 180000 } // LOW & SAFE
+      { gasLimit: 180000 }
     );
 
-    await tx.wait();
+    // 🚫 DO NOT WAIT FOR tx.wait()
 
     res.send(`
-      <h2>✅ Product Created</h2>
+      <h2>✅ Product Submitted</h2>
       <p><b>GPID:</b> ${gpid}</p>
       <p><b>TX:</b> ${tx.hash}</p>
+      <p>Status: ⏳ Pending confirmation</p>
       <br/>
       <a href="/">Create Another</a>
       <br/><br/>
@@ -116,6 +96,7 @@ app.post("/create", async (req, res) => {
         Verify Product
       </a>
     `);
+
   } catch (err) {
     res.send(`<h3>❌ Error</h3><pre>${err.message}</pre><a href="/">Back</a>`);
   }
