@@ -1,6 +1,6 @@
-// ===============================
-// ASJUJ NETWORK — TAAS PANEL (CLEAN & STABLE)
-// ===============================
+// ========================================
+// ASJUJ NETWORK — TAAS PANEL (AMOY SAFE)
+// ========================================
 
 const express = require("express");
 const { ethers } = require("ethers");
@@ -12,9 +12,9 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
-// ===============================
-// ENV VALIDATION (FAIL FAST)
-// ===============================
+// ========================================
+// ENV CHECK (FAIL FAST)
+// ========================================
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -24,15 +24,15 @@ if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
   process.exit(1);
 }
 
-// ===============================
+// ========================================
 // PROVIDER + WALLET
-// ===============================
+// ========================================
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-// ===============================
+// ========================================
 // CONTRACT ABI (WRITE ONLY)
-// ===============================
+// ========================================
 const ABI = [
   "function birthProduct(string,string,string,string,string,string)"
 ];
@@ -43,51 +43,59 @@ const contract = new ethers.Contract(
   wallet
 );
 
-// ===============================
-// HOME UI (NO WHITE PAGE)
-// ===============================
+// ========================================
+// UI — HOME
+// ========================================
 app.get("/", (req, res) => {
   res.send(`
-    <html>
+  <html>
     <head>
       <title>ASJUJ Network — Panel</title>
       <style>
         body {
+          margin:0;
           background:#0b0f1a;
           color:#fff;
-          font-family:Arial;
+          font-family:Arial, sans-serif;
           display:flex;
           justify-content:center;
           align-items:center;
           height:100vh;
         }
-        .card {
-          background:#11162a;
+        .box {
+          background:#12172f;
           padding:30px;
-          border-radius:12px;
           width:420px;
-          box-shadow:0 0 40px rgba(0,0,0,0.6);
+          border-radius:12px;
+          box-shadow:0 0 40px rgba(0,0,0,0.7);
         }
-        h1 { margin-bottom:10px; }
+        h1 { margin:0 0 5px 0; }
+        p { margin:0 0 15px 0; color:#aaa; }
         input, button {
           width:100%;
           padding:10px;
           margin-top:8px;
           border-radius:6px;
           border:none;
+          font-size:14px;
         }
-        input { background:#1c2240; color:#fff; }
+        input {
+          background:#1c2245;
+          color:#fff;
+        }
         button {
           background:#5b7cff;
           color:#fff;
           font-weight:bold;
           cursor:pointer;
         }
-        button:hover { background:#6f8cff; }
+        button:hover {
+          background:#6f8cff;
+        }
       </style>
     </head>
     <body>
-      <div class="card">
+      <div class="box">
         <h1>ASJUJ Network</h1>
         <p>Product Issuance Panel</p>
         <form method="POST" action="/create">
@@ -101,13 +109,13 @@ app.get("/", (req, res) => {
         </form>
       </div>
     </body>
-    </html>
+  </html>
   `);
 });
 
-// ===============================
-// CREATE PRODUCT (GAS FIXED)
-// ===============================
+// ========================================
+// CREATE PRODUCT (AMOY GAS FIXED)
+// ========================================
 app.post("/create", async (req, res) => {
   const { gpid, brand, model, category, factory, batch } = req.body;
 
@@ -120,9 +128,9 @@ app.post("/create", async (req, res) => {
       factory,
       batch,
       {
-        gasLimit: 300000,
-        maxFeePerGas: ethers.parseUnits("40", "gwei"),
-        maxPriorityFeePerGas: ethers.parseUnits("2", "gwei")
+        gasLimit: 400000,
+        maxFeePerGas: ethers.parseUnits("100", "gwei"),
+        maxPriorityFeePerGas: ethers.parseUnits("30", "gwei")
       }
     );
 
@@ -147,9 +155,9 @@ app.post("/create", async (req, res) => {
   }
 });
 
-// ===============================
+// ========================================
 // BOOT
-// ===============================
+// ========================================
 app.listen(PORT, () => {
   console.log("========== TAAS PANEL ==========");
   console.log("Wallet:", wallet.address);
