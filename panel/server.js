@@ -15,14 +15,18 @@ const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
+if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
+  throw new Error("❌ Missing ENV variables (RPC_URL / PRIVATE_KEY / CONTRACT_ADDRESS)");
+}
+
 // =======================
-// PROVIDER / WALLET
+// PROVIDER + WALLET
 // =======================
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 // =======================
-// CONTRACT
+// CONTRACT ABI (MINIMAL)
 // =======================
 const ABI = [
   "function birthProduct(string,string,string,string,string,string)"
@@ -31,7 +35,7 @@ const ABI = [
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 // =======================
-// UI (UNCHANGED)
+// UI (UNCHANGED STYLE)
 // =======================
 app.get("/", (req, res) => {
   res.send(`
@@ -66,11 +70,14 @@ app.get("/", (req, res) => {
 });
 
 // =======================
-// CREATE PRODUCT (UPGRADED)
+// CREATE PRODUCT (SAFE GAS)
 // =======================
 app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
+
+    // 🔥 ALWAYS USE NETWORK FEES
+    const feeData = await provider.getFeeData();
 
     const tx = await contract.birthProduct(
       gpid,
@@ -79,7 +86,11 @@ app.post("/create", async (req, res) => {
       category || "",
       factory || "",
       batch || "",
-      { gasLimit: 180000 }
+      {
+        gasLimit: 160000,
+        maxFeePerGas: feeData.maxFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+      }
     );
 
     // 🚫 DO NOT WAIT FOR tx.wait()
@@ -98,12 +109,16 @@ app.post("/create", async (req, res) => {
     `);
 
   } catch (err) {
-    res.send(`<h3>❌ Error</h3><pre>${err.message}</pre><a href="/">Back</a>`);
+    res.send(`
+      <h3>❌ Error</h3>
+      <pre>${err.message}</pre>
+      <a href="/">Back</a>
+    `);
   }
 });
 
 // =======================
-// START SERVER
+// START
 // =======================
 app.listen(PORT, () => {
   console.log("========== TAAS PANEL ==========");
