@@ -8,22 +8,27 @@ app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 10000;
 
-// =======================
-// ENV (Render Variables)
-// =======================
+/* =====================
+   ENV
+===================== */
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
-// =======================
-// PROVIDER + WALLET
-// =======================
+if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
+  console.error("❌ Missing ENV variables");
+  process.exit(1);
+}
+
+/* =====================
+   PROVIDER & WALLET
+===================== */
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-// =======================
-// ABI (ONLY WHAT WE USE)
-// =======================
+/* =====================
+   CONTRACT ABI (ONLY WHAT WE USE)
+===================== */
 const ABI = [
   "function birthProduct(string,string,string,string,string,string)"
 ];
@@ -34,69 +39,60 @@ const contract = new ethers.Contract(
   wallet
 );
 
-console.log("========== TAAS PANEL (GAS SAFE) ==========");
-console.log("Wallet:", wallet.address);
-console.log("Contract:", CONTRACT_ADDRESS);
-console.log("==========================================");
-
-// =======================
-// UI (VERY SIMPLE)
-// =======================
+/* =====================
+   ROOT CHECK (FOR BROWSER)
+===================== */
 app.get("/", (req, res) => {
-  res.send(`
-    <h2>ASJUJ Product Creation</h2>
-    <form method="POST" action="/create">
-      <input name="gpid" placeholder="GPID" required /><br/>
-      <input name="brand" placeholder="Brand" required /><br/>
-      <input name="model" placeholder="Model" required /><br/>
-      <input name="category" placeholder="Category" required /><br/>
-      <input name="factory" placeholder="Factory" required /><br/>
-      <input name="batch" placeholder="Batch" required /><br/>
-      <button>Create Product</button>
-    </form>
-  `);
+  res.send("TAAS Panel is running");
 });
 
-// =======================
-// CREATE PRODUCT (FORCED GAS)
-// =======================
+/* =====================
+   CREATE PRODUCT
+===================== */
 app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
+
+    if (!gpid || !brand || !model) {
+      return res.status(400).send("Missing required fields");
+    }
 
     const tx = await contract.birthProduct(
       gpid,
       brand,
       model,
-      category,
-      factory,
-      batch,
+      category || "",
+      factory || "",
+      batch || "",
       {
-        gasLimit: 600000, // FORCE
-        maxFeePerGas: ethers.parseUnits("80", "gwei"),
-        maxPriorityFeePerGas: ethers.parseUnits("40", "gwei")
+        gasLimit: 220000,                     // 🔽 MIN SAFE
+        maxFeePerGas: ethers.parseUnits("35", "gwei"),
+        maxPriorityFeePerGas: ethers.parseUnits("2", "gwei")
       }
     );
 
-    console.log("TX SENT:", tx.hash);
+    const receipt = await tx.wait();
 
-    res.send(`
-      <h3>✅ Product Submitted</h3>
-      <p>TX: ${tx.hash}</p>
-      <p>⏳ Wait 1–2 minutes, then verify.</p>
-      <a href="/">Create Another</a>
-    `);
+    res.json({
+      success: true,
+      gpid,
+      tx: receipt.hash,
+      block: receipt.blockNumber
+    });
 
   } catch (err) {
-    console.error(err);
-    res.send(`
-      <h3>❌ Error</h3>
-      <pre>${err.message}</pre>
-      <a href="/">Back</a>
-    `);
+    console.error("❌ CREATE ERROR:", err);
+    res.status(500).send(err.reason || err.message);
   }
 });
 
+/* =====================
+   START SERVER
+===================== */
 app.listen(PORT, () => {
+  console.log("========== TAAS PANEL ==========");
+  console.log("Wallet:", wallet.address);
+  console.log("Contract:", CONTRACT_ADDRESS);
   console.log("TAAS Panel running on", PORT);
+  console.log("================================");
 });
