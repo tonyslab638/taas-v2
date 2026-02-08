@@ -1,3 +1,7 @@
+// ===============================
+// ASJUJ NETWORK — TAAS PANEL (CLEAN & STABLE)
+// ===============================
+
 const express = require("express");
 const { ethers } = require("ethers");
 require("dotenv").config();
@@ -8,9 +12,9 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
-// =======================
-// ENV
-// =======================
+// ===============================
+// ENV VALIDATION (FAIL FAST)
+// ===============================
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -20,15 +24,15 @@ if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
   process.exit(1);
 }
 
-// =======================
+// ===============================
 // PROVIDER + WALLET
-// =======================
+// ===============================
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-// =======================
-// CONTRACT
-// =======================
+// ===============================
+// CONTRACT ABI (WRITE ONLY)
+// ===============================
 const ABI = [
   "function birthProduct(string,string,string,string,string,string)"
 ];
@@ -39,102 +43,102 @@ const contract = new ethers.Contract(
   wallet
 );
 
-// =======================
-// UI : HOME
-// =======================
-app.get("/", async (req, res) => {
+// ===============================
+// HOME UI (NO WHITE PAGE)
+// ===============================
+app.get("/", (req, res) => {
   res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>ASJUJ Network — Panel</title>
-  <style>
-    body {
-      background:#0b0f14;
-      color:#eaeaea;
-      font-family: Arial, sans-serif;
-      padding:40px;
-    }
-    h1 { color:#00f6ff; }
-    .box {
-      background:#121821;
-      padding:20px;
-      border-radius:12px;
-      max-width:520px;
-    }
-    input, button {
-      width:100%;
-      padding:10px;
-      margin:6px 0;
-      border-radius:6px;
-      border:none;
-    }
-    input { background:#1c2330; color:#fff; }
-    button {
-      background:#00f6ff;
-      color:#000;
-      font-weight:bold;
-      cursor:pointer;
-    }
-    .meta {
-      font-size:13px;
-      color:#9aa4b2;
-      margin-bottom:12px;
-    }
-  </style>
-</head>
-<body>
-
-<h1>ASJUJ Network</h1>
-<div class="meta">
-Wallet: ${wallet.address}<br>
-Contract: ${CONTRACT_ADDRESS}<br>
-Network: Polygon Amoy
-</div>
-
-<div class="box">
-  <h3>Create Product</h3>
-  <form method="POST" action="/create">
-    <input name="gpid" placeholder="GPID (e.g. ASJUJ-DEMO-0002)" required />
-    <input name="brand" placeholder="Brand" required />
-    <input name="model" placeholder="Model" required />
-    <input name="category" placeholder="Category" required />
-    <input name="factory" placeholder="Factory" required />
-    <input name="batch" placeholder="Batch" required />
-    <button type="submit">CREATE PRODUCT</button>
-  </form>
-</div>
-
-</body>
-</html>
-`);
+    <html>
+    <head>
+      <title>ASJUJ Network — Panel</title>
+      <style>
+        body {
+          background:#0b0f1a;
+          color:#fff;
+          font-family:Arial;
+          display:flex;
+          justify-content:center;
+          align-items:center;
+          height:100vh;
+        }
+        .card {
+          background:#11162a;
+          padding:30px;
+          border-radius:12px;
+          width:420px;
+          box-shadow:0 0 40px rgba(0,0,0,0.6);
+        }
+        h1 { margin-bottom:10px; }
+        input, button {
+          width:100%;
+          padding:10px;
+          margin-top:8px;
+          border-radius:6px;
+          border:none;
+        }
+        input { background:#1c2240; color:#fff; }
+        button {
+          background:#5b7cff;
+          color:#fff;
+          font-weight:bold;
+          cursor:pointer;
+        }
+        button:hover { background:#6f8cff; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>ASJUJ Network</h1>
+        <p>Product Issuance Panel</p>
+        <form method="POST" action="/create">
+          <input name="gpid" placeholder="GPID" required />
+          <input name="brand" placeholder="Brand" required />
+          <input name="model" placeholder="Model" required />
+          <input name="category" placeholder="Category" required />
+          <input name="factory" placeholder="Factory" required />
+          <input name="batch" placeholder="Batch" required />
+          <button type="submit">Create Product</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
-// =======================
-// CREATE PRODUCT
-// =======================
+// ===============================
+// CREATE PRODUCT (GAS FIXED)
+// ===============================
 app.post("/create", async (req, res) => {
-  try {
-    const { gpid, brand, model, category, factory, batch } = req.body;
+  const { gpid, brand, model, category, factory, batch } = req.body;
 
+  try {
     const tx = await contract.birthProduct(
       gpid,
       brand,
       model,
       category,
       factory,
-      batch
+      batch,
+      {
+        gasLimit: 300000,
+        maxFeePerGas: ethers.parseUnits("40", "gwei"),
+        maxPriorityFeePerGas: ethers.parseUnits("2", "gwei")
+      }
     );
 
     res.send(`
       <h2>✅ Product Created</h2>
       <p><b>GPID:</b> ${gpid}</p>
       <p><b>TX:</b> ${tx.hash}</p>
-      <p><a href="/">Create Another</a></p>
-      <p><a href="${process.env.VERIFIER_URL || "#"}?gpid=${gpid}">Verify Product</a></p>
+      <br/>
+      <a href="/">Create Another</a><br/>
+      <a href="https://taas-verifier-v3.onrender.com/?gpid=${gpid}">
+        Verify Product
+      </a>
     `);
 
   } catch (err) {
+    console.error(err);
     res.send(`
       <h2>❌ Error</h2>
       <pre>${err.reason || err.message}</pre>
@@ -143,12 +147,13 @@ app.post("/create", async (req, res) => {
   }
 });
 
-// =======================
-// START
-// =======================
+// ===============================
+// BOOT
+// ===============================
 app.listen(PORT, () => {
   console.log("========== TAAS PANEL ==========");
   console.log("Wallet:", wallet.address);
   console.log("Contract:", CONTRACT_ADDRESS);
+  console.log("================================");
   console.log("TAAS Panel running on", PORT);
 });
