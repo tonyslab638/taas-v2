@@ -3,59 +3,95 @@ const { ethers } = require("ethers");
 require("dotenv").config();
 
 const app = express();
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
-/* =====================
-   ENV
-===================== */
+// =======================
+// ENV
+// =======================
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
-if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.error("❌ Missing ENV variables");
-  process.exit(1);
-}
-
-/* =====================
-   PROVIDER & WALLET
-===================== */
+// =======================
+// PROVIDER / WALLET
+// =======================
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-/* =====================
-   CONTRACT ABI (ONLY WHAT WE USE)
-===================== */
+// =======================
+// CONTRACT
+// =======================
 const ABI = [
-  "function birthProduct(string,string,string,string,string,string)"
+  "function birthProduct(string,string,string,string,string,string)",
 ];
 
-const contract = new ethers.Contract(
-  CONTRACT_ADDRESS,
-  ABI,
-  wallet
-);
+const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
-/* =====================
-   ROOT CHECK (FOR BROWSER)
-===================== */
+// =======================
+// UI (HOME PAGE)
+// =======================
 app.get("/", (req, res) => {
-  res.send("TAAS Panel is running");
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ASJUJ Network – Product Panel</title>
+  <style>
+    body {
+      background:#0b0b0b;
+      color:#fff;
+      font-family: Arial, sans-serif;
+      padding:40px;
+    }
+    h1 { color:#00ffd5; }
+    input, button {
+      width:100%;
+      padding:12px;
+      margin:8px 0;
+      font-size:16px;
+    }
+    button {
+      background:#00ffd5;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+    }
+    .box {
+      max-width:500px;
+      margin:auto;
+      background:#111;
+      padding:25px;
+      border-radius:8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>ASJUJ Product Creation</h1>
+    <form method="POST" action="/create">
+      <input name="gpid" placeholder="GPID (ASJUJ-XXXX-0001)" required />
+      <input name="brand" placeholder="Brand" required />
+      <input name="model" placeholder="Model" required />
+      <input name="category" placeholder="Category" />
+      <input name="factory" placeholder="Factory" />
+      <input name="batch" placeholder="Batch" />
+      <button type="submit">CREATE PRODUCT</button>
+    </form>
+  </div>
+</body>
+</html>
+  `);
 });
 
-/* =====================
-   CREATE PRODUCT
-===================== */
+// =======================
+// CREATE PRODUCT
+// =======================
 app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
-
-    if (!gpid || !brand || !model) {
-      return res.status(400).send("Missing required fields");
-    }
 
     const tx = await contract.birthProduct(
       gpid,
@@ -64,31 +100,30 @@ app.post("/create", async (req, res) => {
       category || "",
       factory || "",
       batch || "",
-      {
-        gasLimit: 220000,                     // 🔽 MIN SAFE
-        maxFeePerGas: ethers.parseUnits("35", "gwei"),
-        maxPriorityFeePerGas: ethers.parseUnits("2", "gwei")
-      }
+      { gasLimit: 180000 } // LOW & SAFE
     );
 
-    const receipt = await tx.wait();
+    await tx.wait();
 
-    res.json({
-      success: true,
-      gpid,
-      tx: receipt.hash,
-      block: receipt.blockNumber
-    });
-
+    res.send(`
+      <h2>✅ Product Created</h2>
+      <p><b>GPID:</b> ${gpid}</p>
+      <p><b>TX:</b> ${tx.hash}</p>
+      <br/>
+      <a href="/">Create Another</a>
+      <br/><br/>
+      <a href="https://taas-verifier-v3.onrender.com/?gpid=${gpid}" target="_blank">
+        Verify Product
+      </a>
+    `);
   } catch (err) {
-    console.error("❌ CREATE ERROR:", err);
-    res.status(500).send(err.reason || err.message);
+    res.send(`<h3>❌ Error</h3><pre>${err.message}</pre><a href="/">Back</a>`);
   }
 });
 
-/* =====================
-   START SERVER
-===================== */
+// =======================
+// START SERVER
+// =======================
 app.listen(PORT, () => {
   console.log("========== TAAS PANEL ==========");
   console.log("Wallet:", wallet.address);
