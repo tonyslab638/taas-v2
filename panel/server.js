@@ -11,23 +11,27 @@ const PORT = process.env.PORT || 10000;
 // =======================
 // ENV
 // =======================
+
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  throw new Error("❌ Missing ENV variables (RPC_URL / PRIVATE_KEY / CONTRACT_ADDRESS)");
+  console.error("❌ Missing environment variables");
+  process.exit(1);
 }
 
 // =======================
 // PROVIDER + WALLET
 // =======================
+
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 // =======================
-// CONTRACT ABI (MINIMAL)
+// CONTRACT ABI
 // =======================
+
 const ABI = [
   "function birthProduct(string,string,string,string,string,string)"
 ];
@@ -35,95 +39,70 @@ const ABI = [
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 // =======================
-// UI (UNCHANGED STYLE)
+// UI
 // =======================
+
 app.get("/", (req, res) => {
   res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>ASJUJ Network – Panel</title>
-  <style>
-    body { background:#0b0b0b; color:#fff; font-family:Arial; padding:40px; }
-    h1 { color:#00ffd5; }
-    input, button { width:100%; padding:12px; margin:8px 0; font-size:16px; }
-    button { background:#00ffd5; border:none; font-weight:bold; cursor:pointer; }
-    .box { max-width:500px; margin:auto; background:#111; padding:25px; border-radius:8px; }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <h1>ASJUJ Product Creation</h1>
+    <h2>ASJUJ Network - Create Product</h2>
     <form method="POST" action="/create">
-      <input name="gpid" placeholder="GPID (ASJUJ-XXXX-0001)" required />
-      <input name="brand" placeholder="Brand" required />
-      <input name="model" placeholder="Model" required />
-      <input name="category" placeholder="Category" />
-      <input name="factory" placeholder="Factory" />
-      <input name="batch" placeholder="Batch" />
-      <button type="submit">CREATE PRODUCT</button>
+      GPID: <input name="gpid" required /><br/><br/>
+      Brand: <input name="brand" required /><br/><br/>
+      Model: <input name="model" required /><br/><br/>
+      Category: <input name="category" required /><br/><br/>
+      Factory: <input name="factory" required /><br/><br/>
+      Batch: <input name="batch" required /><br/><br/>
+      <button type="submit">Create Product</button>
     </form>
-  </div>
-</body>
-</html>
   `);
 });
 
 // =======================
-// CREATE PRODUCT (SAFE GAS)
+// CREATE PRODUCT
 // =======================
+
 app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
 
-    // 🔥 ALWAYS USE NETWORK FEES
     const feeData = await provider.getFeeData();
 
     const tx = await contract.birthProduct(
       gpid,
       brand,
       model,
-      category || "",
-      factory || "",
-      batch || "",
+      category,
+      factory,
+      batch,
       {
-        gasLimit: 160000,
+        gasLimit: 300000,
         maxFeePerGas: feeData.maxFeePerGas,
         maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
       }
     );
 
-    // 🚫 DO NOT WAIT FOR tx.wait()
-
     res.send(`
-      <h2>✅ Product Submitted</h2>
-      <p><b>GPID:</b> ${gpid}</p>
-      <p><b>TX:</b> ${tx.hash}</p>
-      <p>Status: ⏳ Pending confirmation</p>
-      <br/>
+      <h3>✅ Product Created</h3>
+      GPID: ${gpid}<br/><br/>
+      TX: ${tx.hash}<br/><br/>
       <a href="/">Create Another</a>
-      <br/><br/>
-      <a href="https://taas-verifier-v3.onrender.com/?gpid=${gpid}" target="_blank">
-        Verify Product
-      </a>
     `);
 
   } catch (err) {
+    console.error(err);
     res.send(`
       <h3>❌ Error</h3>
-      <pre>${err.message}</pre>
+      ${err.reason || err.message}
+      <br/><br/>
       <a href="/">Back</a>
     `);
   }
 });
 
-// =======================
-// START
-// =======================
 app.listen(PORT, () => {
   console.log("========== TAAS PANEL ==========");
   console.log("Wallet:", wallet.address);
   console.log("Contract:", CONTRACT_ADDRESS);
-  console.log("TAAS Panel running on", PORT);
   console.log("================================");
+  console.log("TAAS Panel running on", PORT);
 });
