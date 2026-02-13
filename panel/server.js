@@ -9,7 +9,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 10000;
 
 // =======================
-// ENV
+// ENV VARIABLES
 // =======================
 
 const RPC_URL = process.env.RPC_URL;
@@ -17,7 +17,7 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 if (!RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.error("❌ Missing environment variables");
+  console.error("❌ Missing ENV variables");
   process.exit(1);
 }
 
@@ -29,7 +29,7 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 // =======================
-// CONTRACT ABI
+// MINIMAL ABI
 // =======================
 
 const ABI = [
@@ -39,19 +39,19 @@ const ABI = [
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 // =======================
-// UI
+// HOME PAGE
 // =======================
 
 app.get("/", (req, res) => {
   res.send(`
     <h2>ASJUJ Network - Create Product</h2>
     <form method="POST" action="/create">
-      GPID: <input name="gpid" required /><br/><br/>
-      Brand: <input name="brand" required /><br/><br/>
-      Model: <input name="model" required /><br/><br/>
-      Category: <input name="category" required /><br/><br/>
-      Factory: <input name="factory" required /><br/><br/>
-      Batch: <input name="batch" required /><br/><br/>
+      <input name="gpid" placeholder="GPID" required /><br/><br/>
+      <input name="brand" placeholder="Brand" required /><br/><br/>
+      <input name="model" placeholder="Model" required /><br/><br/>
+      <input name="category" placeholder="Category" required /><br/><br/>
+      <input name="factory" placeholder="Factory" required /><br/><br/>
+      <input name="batch" placeholder="Batch" required /><br/><br/>
       <button type="submit">Create Product</button>
     </form>
   `);
@@ -65,8 +65,7 @@ app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
 
-    const feeData = await provider.getFeeData();
-
+    // FORCE LEGACY GAS MODE
     const tx = await contract.birthProduct(
       gpid,
       brand,
@@ -76,24 +75,26 @@ app.post("/create", async (req, res) => {
       batch,
       {
         gasLimit: 300000,
-        maxFeePerGas: feeData.maxFeePerGas,
-        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+        gasPrice: ethers.parseUnits("110", "gwei") // Force above network minimum
       }
     );
 
+    console.log("TX SENT:", tx.hash);
+
     res.send(`
       <h3>✅ Product Created</h3>
-      GPID: ${gpid}<br/><br/>
-      TX: ${tx.hash}<br/><br/>
+      <p>GPID: ${gpid}</p>
+      <p>TX: ${tx.hash}</p>
+      <br/>
       <a href="/">Create Another</a>
     `);
 
   } catch (err) {
-    console.error(err);
+    console.error("CREATE ERROR:", err);
     res.send(`
       <h3>❌ Error</h3>
-      ${err.reason || err.message}
-      <br/><br/>
+      <p>${err.reason || err.message}</p>
+      <br/>
       <a href="/">Back</a>
     `);
   }
@@ -104,5 +105,5 @@ app.listen(PORT, () => {
   console.log("Wallet:", wallet.address);
   console.log("Contract:", CONTRACT_ADDRESS);
   console.log("================================");
-  console.log("TAAS Panel running on", PORT);
+  console.log("Panel running on port", PORT);
 });
