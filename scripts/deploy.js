@@ -3,26 +3,37 @@ const hre = require("hardhat");
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
 
+  const balance = await hre.ethers.provider.getBalance(deployer.address);
+
+  console.log("====================================");
   console.log("Deploying with:", deployer.address);
+  console.log("Balance:", hre.ethers.formatEther(balance), "ETH");
+  console.log("====================================");
 
-  const balance = await deployer.provider.getBalance(deployer.address);
-  console.log("Balance:", balance.toString());
-
-  const ContractFactory = await hre.ethers.getContractFactory(
-    "TaaSProductBirthV3"
+  const Factory = await hre.ethers.getContractFactory(
+    "contracts/TaaSProductCore.sol:TaaSProductCore"
   );
 
-  console.log("Contract factory loaded");
+  console.log("Preparing contract factory...");
 
-  const contract = await ContractFactory.deploy();
-  console.log("Deploy tx sent:", contract.deploymentTransaction().hash);
+  const contract = await Factory.deploy();
 
+  console.log("Transaction sent...");
+  console.log("TX Hash:", contract.deploymentTransaction().hash);
+
+  console.log("Waiting for confirmation...");
   await contract.waitForDeployment();
 
-  console.log("✅ Contract deployed at:", contract.target);
+  const address = await contract.getAddress();
+
+  console.log("====================================");
+  console.log("CONTRACT DEPLOYED SUCCESSFULLY");
+  console.log("Contract Address:", address);
+  console.log("====================================");
 }
 
 main().catch((error) => {
+  console.error("DEPLOY FAILED:");
   console.error(error);
-  process.exitCode = 1;
+  process.exit(1);
 });

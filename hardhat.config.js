@@ -8,15 +8,14 @@ module.exports = {
       optimizer: {
         enabled: true,
         runs: 200
-      },
-      viaIR: true
+      }
     }
   },
   networks: {
-    amoy: {
+    sepolia: {
       url: process.env.RPC_URL,
       accounts: [process.env.PRIVATE_KEY],
-      chainId: 80002
+      chainId: 11155111
     }
   }
 };
