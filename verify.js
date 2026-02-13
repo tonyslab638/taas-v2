@@ -3,6 +3,9 @@ const { ethers } = require("ethers");
 require("dotenv").config();
 
 const app = express();
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
 const PORT = process.env.PORT || 10000;
 
 const RPC_URL = process.env.RPC_URL;
@@ -16,91 +19,71 @@ const ABI = [
 
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
+// ===========================
+// HOME PAGE
+// ===========================
+
 app.get("/", (req, res) => {
   res.send(`
-  <h2>ASJUJ VERIFIER RUNNING</h2>
+    <html>
+      <body style="font-family: Arial; padding:40px;">
+        <h2>ASJUJ Network — Product Verification</h2>
+        <form action="/verify" method="POST">
+          <input name="gpid" placeholder="Enter GPID" required />
+          <button type="submit">Verify</button>
+        </form>
+      </body>
+    </html>
   `);
 });
 
-app.get("/verify", async (req, res) => {
+// ===========================
+// VERIFY ROUTE
+// ===========================
+
+app.post("/verify", async (req, res) => {
   try {
-    const gpid = req.query.gpid;
+    const { gpid } = req.body;
+
+    if (!gpid) {
+      return res.send("❌ GPID missing");
+    }
 
     const product = await contract.getProduct(gpid);
 
     res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <title>ASJUJ Verification</title>
-    <style>
-
-    body {
-      margin:0;
-      font-family:'Segoe UI',sans-serif;
-      background:linear-gradient(135deg,#141e30,#243b55);
-      height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:white;
-    }
-
-    .card {
-      width:650px;
-      padding:50px;
-      border-radius:25px;
-      background:rgba(255,255,255,0.06);
-      backdrop-filter:blur(20px);
-      box-shadow:0 0 60px rgba(0,0,0,0.7);
-    }
-
-    h2 {
-      text-align:center;
-      margin-bottom:30px;
-      background:linear-gradient(90deg,#00f2fe,#4facfe);
-      -webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;
-    }
-
-    .row {
-      margin-bottom:12px;
-      padding:10px;
-      background:rgba(0,0,0,0.4);
-      border-radius:12px;
-    }
-
-    </style>
-    </head>
-
-    <body>
-    <div class="card">
-    <h2>ASJUJ VERIFIED PRODUCT</h2>
-
-    <div class="row"><b>GPID:</b> ${product[0]}</div>
-    <div class="row"><b>Brand:</b> ${product[1]}</div>
-    <div class="row"><b>Model:</b> ${product[2]}</div>
-    <div class="row"><b>Category:</b> ${product[3]}</div>
-    <div class="row"><b>Factory:</b> ${product[4]}</div>
-    <div class="row"><b>Batch:</b> ${product[5]}</div>
-    <div class="row"><b>Born:</b> ${new Date(product[6]*1000).toUTCString()}</div>
-    <div class="row"><b>Issuer:</b> ${product[7]}</div>
-    <div class="row"><b>Owner:</b> ${product[8]}</div>
-
-    </div>
-    </body>
-    </html>
+      <html>
+        <body style="font-family: Arial; padding:40px;">
+          <h2>✅ ASJUJ Verified Product</h2>
+          <p><strong>GPID:</strong> ${product[0]}</p>
+          <p><strong>Brand:</strong> ${product[1]}</p>
+          <p><strong>Model:</strong> ${product[2]}</p>
+          <p><strong>Category:</strong> ${product[3]}</p>
+          <p><strong>Factory:</strong> ${product[4]}</p>
+          <p><strong>Batch:</strong> ${product[5]}</p>
+          <p><strong>Born:</strong> ${new Date(Number(product[6]) * 1000).toUTCString()}</p>
+          <p><strong>Issuer:</strong> ${product[7]}</p>
+          <p><strong>Owner:</strong> ${product[8]}</p>
+          <br>
+          <a href="/">Verify Another</a>
+        </body>
+      </html>
     `);
 
-  } catch (err) {
+  } catch (error) {
     res.send(`
-    <h2>❌ Product Not Found</h2>
-    <p>This GPID is not registered on ASJUJ Network.</p>
-    <a href="/">Try Again</a>
+      <html>
+        <body style="font-family: Arial; padding:40px;">
+          <h2>❌ Product Not Found</h2>
+          <p>This GPID is not registered on ASJUJ Network.</p>
+          <br>
+          <a href="/">Try Again</a>
+        </body>
+      </html>
     `);
   }
 });
 
 app.listen(PORT, () => {
-  console.log("TAAS Verifier running on", PORT);
+  console.log("TAAS Verifier running on " + PORT);
 });
