@@ -9,7 +9,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 10000;
 
 // =======================
-// ENV VARIABLES
+// ENV
 // =======================
 
 const RPC_URL = process.env.RPC_URL;
@@ -29,7 +29,7 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 // =======================
-// MINIMAL ABI
+// CONTRACT ABI
 // =======================
 
 const ABI = [
@@ -39,21 +39,59 @@ const ABI = [
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 // =======================
-// HOME PAGE
+// UI
 // =======================
 
 app.get("/", (req, res) => {
   res.send(`
-    <h2>ASJUJ Network - Create Product</h2>
-    <form method="POST" action="/create">
-      <input name="gpid" placeholder="GPID" required /><br/><br/>
-      <input name="brand" placeholder="Brand" required /><br/><br/>
-      <input name="model" placeholder="Model" required /><br/><br/>
-      <input name="category" placeholder="Category" required /><br/><br/>
-      <input name="factory" placeholder="Factory" required /><br/><br/>
-      <input name="batch" placeholder="Batch" required /><br/><br/>
-      <button type="submit">Create Product</button>
-    </form>
+    <html>
+    <head>
+      <title>ASJUJ Network Panel</title>
+      <style>
+        body {
+          font-family: Arial;
+          background: #0f172a;
+          color: white;
+          padding: 40px;
+        }
+        input {
+          padding: 10px;
+          margin: 8px 0;
+          width: 300px;
+        }
+        button {
+          padding: 12px 20px;
+          background: #2563eb;
+          color: white;
+          border: none;
+          cursor: pointer;
+        }
+        button:hover {
+          background: #1e40af;
+        }
+        .box {
+          background: #1e293b;
+          padding: 30px;
+          border-radius: 8px;
+          width: 400px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <h2>ASJUJ Network - Create Product</h2>
+        <form method="POST" action="/create">
+          <input name="gpid" placeholder="GPID" required /><br/>
+          <input name="brand" placeholder="Brand" required /><br/>
+          <input name="model" placeholder="Model" required /><br/>
+          <input name="category" placeholder="Category" required /><br/>
+          <input name="factory" placeholder="Factory" required /><br/>
+          <input name="batch" placeholder="Batch" required /><br/>
+          <button type="submit">Create Product</button>
+        </form>
+      </div>
+    </body>
+    </html>
   `);
 });
 
@@ -65,7 +103,8 @@ app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
 
-    // FORCE LEGACY GAS MODE
+    console.log("Sending transaction...");
+
     const tx = await contract.birthProduct(
       gpid,
       brand,
@@ -75,35 +114,38 @@ app.post("/create", async (req, res) => {
       batch,
       {
         gasLimit: 300000,
-        gasPrice: ethers.parseUnits("110", "gwei") // Force above network minimum
+        gasPrice: ethers.parseUnits("40", "gwei")
       }
     );
 
     console.log("TX SENT:", tx.hash);
 
+    await tx.wait();
+
     res.send(`
-      <h3>✅ Product Created</h3>
+      <h2 style="color:green;">✅ Product Created</h2>
       <p>GPID: ${gpid}</p>
-      <p>TX: ${tx.hash}</p>
+      <p>Transaction Hash:</p>
+      <p>${tx.hash}</p>
       <br/>
-      <a href="/">Create Another</a>
+      <a href="/" style="color:white;">Create Another</a>
     `);
 
   } catch (err) {
     console.error("CREATE ERROR:", err);
     res.send(`
-      <h3>❌ Error</h3>
+      <h2 style="color:red;">❌ Error</h2>
       <p>${err.reason || err.message}</p>
       <br/>
-      <a href="/">Back</a>
+      <a href="/" style="color:white;">Back</a>
     `);
   }
 });
 
 app.listen(PORT, () => {
-  console.log("========== TAAS PANEL ==========");
+  console.log("========== TAAS PANEL (MUMBAI) ==========");
   console.log("Wallet:", wallet.address);
   console.log("Contract:", CONTRACT_ADDRESS);
-  console.log("================================");
+  console.log("==========================================");
   console.log("Panel running on port", PORT);
 });
