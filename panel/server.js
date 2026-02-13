@@ -8,117 +8,103 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
-// ================= ENV =================
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
-// ============== PROVIDER ==============
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
-// ============== CONTRACT ABI ==========
 const ABI = [
   "function createProduct(string,string,string,string,string,string)"
 ];
 
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
-// ================= UI =================
+const baseStyle = `
+<style>
+body {
+  margin:0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #0f0f1a, #1c1c2e);
+  color: white;
+}
+.container {
+  max-width: 900px;
+  margin: 80px auto;
+  padding: 50px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 0 60px rgba(0,0,0,0.6);
+}
+h1 {
+  font-size: 32px;
+  letter-spacing: 2px;
+}
+input {
+  width:100%;
+  padding:14px;
+  margin:10px 0;
+  border:none;
+  border-radius:10px;
+  background:#1e1e30;
+  color:white;
+}
+button {
+  padding:14px 25px;
+  border:none;
+  border-radius:12px;
+  background: linear-gradient(90deg,#6a11cb,#2575fc);
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+  transition:0.3s;
+}
+button:hover {
+  transform: scale(1.05);
+  box-shadow:0 0 20px #6a11cb;
+}
+.success {
+  background:#0d2d1f;
+  padding:20px;
+  border-radius:12px;
+}
+.error {
+  background:#3a0d0d;
+  padding:20px;
+  border-radius:12px;
+}
+a {
+  color:#00f0ff;
+  text-decoration:none;
+}
+</style>
+`;
+
 app.get("/", (req, res) => {
   res.send(`
-  <!DOCTYPE html>
   <html>
-  <head>
-  <title>ASJUJ Network</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-
-  body {
-    margin:0;
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:white;
-  }
-
-  .card {
-    width:600px;
-    padding:50px;
-    border-radius:25px;
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 0 50px rgba(0,0,0,0.6);
-  }
-
-  h1 {
-    text-align:center;
-    margin-bottom:40px;
-    font-weight:600;
-    letter-spacing:2px;
-    background: linear-gradient(90deg,#00f2fe,#4facfe);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-  }
-
-  input {
-    width:100%;
-    padding:14px;
-    margin-bottom:15px;
-    border-radius:12px;
-    border:none;
-    background:rgba(0,0,0,0.4);
-    color:white;
-  }
-
-  input:focus {
-    outline:none;
-    box-shadow:0 0 10px #4facfe;
-  }
-
-  button {
-    width:100%;
-    padding:15px;
-    border-radius:14px;
-    border:none;
-    font-weight:bold;
-    background: linear-gradient(90deg,#00f2fe,#4facfe);
-    cursor:pointer;
-    transition:0.3s;
-  }
-
-  button:hover {
-    transform:scale(1.05);
-    box-shadow:0 0 20px #4facfe;
-  }
-
-  </style>
-  </head>
-
+  <head>${baseStyle}</head>
   <body>
-  <div class="card">
-  <h1>ASJUJ NETWORK</h1>
-
-  <form method="POST" action="/create">
-    <input name="gpid" placeholder="GPID" required />
-    <input name="brand" placeholder="Brand" required />
-    <input name="model" placeholder="Model" required />
-    <input name="category" placeholder="Category" required />
-    <input name="factory" placeholder="Factory" required />
-    <input name="batch" placeholder="Batch" required />
-    <button type="submit">CREATE PRODUCT</button>
-  </form>
-
-  </div>
+    <div class="container">
+      <h1>ASJUJ NETWORK — Product Issuance Console</h1>
+      <p>Enterprise Product Identity Infrastructure</p>
+      <form method="POST" action="/create">
+        <input name="gpid" placeholder="GPID (Unique Product ID)" required />
+        <input name="brand" placeholder="Brand" required />
+        <input name="model" placeholder="Model" required />
+        <input name="category" placeholder="Category" required />
+        <input name="factory" placeholder="Factory" required />
+        <input name="batch" placeholder="Batch" required />
+        <button type="submit">Create Product</button>
+      </form>
+    </div>
   </body>
   </html>
   `);
 });
 
-// ================= CREATE PRODUCT =================
 app.post("/create", async (req, res) => {
   try {
     const { gpid, brand, model, category, factory, batch } = req.body;
@@ -135,21 +121,37 @@ app.post("/create", async (req, res) => {
     await tx.wait();
 
     res.send(`
-    <h2 style="color:green;">✅ Product Created</h2>
-    <p><b>GPID:</b> ${gpid}</p>
-    <p><b>TX:</b> ${tx.hash}</p>
-    <br>
-    <a href="/">Create Another</a>
-    <br>
-    <a href="https://taas-verifier-v3.onrender.com/verify?gpid=${gpid}">
-    Verify Product</a>
+    <html>
+    <head>${baseStyle}</head>
+    <body>
+      <div class="container success">
+        <h2>✅ Product Created</h2>
+        <p><strong>GPID:</strong> ${gpid}</p>
+        <p><strong>TX:</strong> ${tx.hash}</p>
+        <br>
+        <a href="/">Create Another</a>
+      </div>
+    </body>
+    </html>
     `);
 
   } catch (err) {
-    res.send(`<h2>❌ Error</h2><pre>${err.message}</pre>`);
+    res.send(`
+    <html>
+    <head>${baseStyle}</head>
+    <body>
+      <div class="container error">
+        <h2>❌ Error</h2>
+        <p>${err.message}</p>
+        <br>
+        <a href="/">Back</a>
+      </div>
+    </body>
+    </html>
+    `);
   }
 });
 
 app.listen(PORT, () => {
-  console.log("TAAS PANEL running on", PORT);
+  console.log("TAAS PANEL running on " + PORT);
 });
